@@ -10,26 +10,52 @@ from playwright.async_api import async_playwright
 CATALOGO_URL = "https://drabbalovers.co/collections/drabba-pdf-button"
 BOTON_TEXTO = "DESCARGAR CATÁLOGO PDF"
 SALIDA = "catalogo.pdf"
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+)
 
 
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+        context = await browser.new_context(
+            user_agent=USER_AGENT,
+            viewport={"width": 1366, "height": 900},
+        )
+        page = await context.new_page()
 
         print(f"Abriendo {CATALOGO_URL} ...")
-        await page.goto(CATALOGO_URL, wait_until="networkidle", timeout=60000)
+        await page.goto(CATALOGO_URL, wait_until="load", timeout=60000)
+        await page.wait_for_timeout(3000)  # deja asentar banners/cookies
 
-        print("Haciendo click en el boton de descarga...")
-        # 82 productos con imagenes -> hasta 3 minutos de margen
-        async with page.expect_download(timeout=180000) as download_info:
-            await page.get_by_text(BOTON_TEXTO, exact=False).click()
+        # Screenshot de diagnostico SIEMPRE, para poder ver que carga la pagina
+        await page.screenshot(path="debug_antes_click.png", full_page=True)
 
-        download = await download_info.value
-        await download.save_as(SALIDA)
-        print(f"PDF guardado en {SALIDA}")
+        print("Buscando el boton de descarga...")
+        try:
+            boton = page.get_by_role("button", name=BOTON_TEXTO)
+            if await boton.count() == 0:
+                boton = page.get_by_text(BOTON_TEXTO, exact=False)
 
-        await browser.close()
+            await boton.first.wait_for(state="visible", timeout=20000)
+
+            print("Haciendo click en el boton de descarga...")
+            # 82 productos con imagenes -> hasta 3 minutos de margen
+            async with page.expect_download(timeout=180000) as download_info:
+                await boton.first.click(timeout=20000)
+
+            download = await download_info.value
+            await download.save_as(SALIDA)
+            print(f"PDF guardado en {SALIDA}")
+
+        except Exception:
+            # Si algo falla, guarda otra screenshot justo del momento del fallo
+            await page.screenshot(path="debug_error.png", full_page=True)
+            raise
+
+        finally:
+            await browser.close()
 
 
 if __name__ == "__main__":
