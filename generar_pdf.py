@@ -1,3 +1,4 @@
+
 """
 Entra a la colección drabba-pdf-button, ABRE el cart drawer (el botón vive
 ahí dentro y está oculto por CSS hasta que el drawer se abre), hace clic en
@@ -110,3 +111,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"ERROR generando el PDF: {e}", file=sys.stderr)
         sys.exit(1)
+ 
