@@ -29,6 +29,14 @@ jobs:
       - name: Generar PDF
         run: python generar_pdf.py
 
+      - name: Subir capturas de diagnostico (siempre, incluso si falla)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: debug_*.png
+          if-no-files-found: ignore
+
       - name: Subir PDF actualizado al repo
         run: |
           git config user.name "github-actions[bot]"
