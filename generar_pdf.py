@@ -35,13 +35,17 @@ async def main():
         # Screenshot de diagnostico SIEMPRE, para poder ver que carga la pagina
         await page.screenshot(path="debug_antes_click.png", full_page=True)
 
-        print("Buscando el boton de descarga...")
-        try:
-            boton = page.get_by_text(BOTON_REGEX)
-            count = await boton.count()
-            print(f"Elementos encontrados con 'descargar': {count}")
+        print("Buscando el botón de descarga...")
 
-            await boton.first.wait_for(state="visible", timeout=20000)
+# Espera a que el botón exista
+await page.wait_for_selector('button[id^="drabbaPdfBtn"]', timeout=60000)
+
+boton = page.locator('button[id^="drabbaPdfBtn"]')
+
+count = await boton.count()
+print(f"Botones encontrados: {count}")
+
+await boton.first.wait_for(state="visible", timeout=60000)
 
             print("Haciendo click en el boton de descarga...")
             # 82 productos con imagenes -> hasta 3 minutos de margen
