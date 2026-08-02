@@ -4,11 +4,14 @@ Entra a la coleccion drabba-pdf-button, le da click al boton
 y descarga en el navegador.
 """
 import asyncio
+import re
 import sys
 from playwright.async_api import async_playwright
 
 CATALOGO_URL = "https://drabbalovers.co/collections/drabba-pdf-button"
-BOTON_TEXTO = "DESCARGAR CATÁLOGO PDF"
+# Buscamos solo "DESCARGAR" (sin tildes) para evitar problemas de codificacion
+# de caracteres acentuados entre el sitio y este script.
+BOTON_REGEX = re.compile(r"descargar", re.IGNORECASE)
 SALIDA = "catalogo.pdf"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -34,9 +37,9 @@ async def main():
 
         print("Buscando el boton de descarga...")
         try:
-            boton = page.get_by_role("button", name=BOTON_TEXTO)
-            if await boton.count() == 0:
-                boton = page.get_by_text(BOTON_TEXTO, exact=False)
+            boton = page.get_by_text(BOTON_REGEX)
+            count = await boton.count()
+            print(f"Elementos encontrados con 'descargar': {count}")
 
             await boton.first.wait_for(state="visible", timeout=20000)
 
@@ -50,8 +53,11 @@ async def main():
             print(f"PDF guardado en {SALIDA}")
 
         except Exception:
-            # Si algo falla, guarda otra screenshot justo del momento del fallo
+            # Si algo falla, guarda otra screenshot y el HTML completo
             await page.screenshot(path="debug_error.png", full_page=True)
+            html = await page.content()
+            with open("debug_html.txt", "w", encoding="utf-8") as f:
+                f.write(html)
             raise
 
         finally:
