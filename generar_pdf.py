@@ -11,7 +11,7 @@ from playwright.async_api import async_playwright
 CATALOGO_URL = "https://drabbalovers.co/collections/drabba-pdf-button"
 # Buscamos solo "DESCARGAR" (sin tildes) para evitar problemas de codificacion
 # de caracteres acentuados entre el sitio y este script.
-BOTON_REGEX = re.compile(r"descargar", re.IGNORECASE)
+BOTON_REGEX = re.compile(r"DRABBA", re.IGNORECASE)
 SALIDA = "catalogo.pdf"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -39,7 +39,7 @@ async def main():
         try:
             boton = page.get_by_text(BOTON_REGEX)
             count = await boton.count()
-            print(f"Elementos encontrados con 'descargar': {count}")
+            print(f"Elementos encontrados con 'DRABBA': {count}")
 
             await boton.first.wait_for(state="visible", timeout=20000)
 
