@@ -1,67 +1,93 @@
 """
-Entra a la coleccion drabba-pdf-button, le da click al boton
-"DESCARGAR CATALOGO PDF" y captura el archivo que jsPDF genera
-y descarga en el navegador.
+Entra a la colección drabba-pdf-button, hace clic en el botón
+"DESCARGAR CATÁLOGO PDF" y captura el archivo descargado.
 """
+
 import asyncio
-import re
 import sys
 from playwright.async_api import async_playwright
 
 CATALOGO_URL = "https://drabbalovers.co/collections/drabba-pdf-button"
-# Buscamos solo "DESCARGAR" (sin tildes) para evitar problemas de codificacion
-# de caracteres acentuados entre el sitio y este script.
-BOTON_REGEX = re.compile(r"descargar", re.IGNORECASE)
 SALIDA = "catalogo.pdf"
+
 USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/128.0.0.0 Safari/537.36"
 )
 
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True
+        )
+
         context = await browser.new_context(
             user_agent=USER_AGENT,
             viewport={"width": 1366, "height": 900},
+            accept_downloads=True,
         )
+
         page = await context.new_page()
 
-        print(f"Abriendo {CATALOGO_URL} ...")
-        await page.goto(CATALOGO_URL, wait_until="load", timeout=60000)
-        await page.wait_for_timeout(3000)  # deja asentar banners/cookies
+        try:
+            print(f"Abriendo {CATALOGO_URL}...")
 
-        # Screenshot de diagnostico SIEMPRE, para poder ver que carga la pagina
-        await page.screenshot(path="debug_antes_click.png", full_page=True)
+            await page.goto(
+                CATALOGO_URL,
+                wait_until="networkidle",
+                timeout=60000,
+            )
 
-        print("Buscando el botón de descarga...")
+            await page.wait_for_timeout(5000)
 
-# Espera a que el botón exista
-await page.wait_for_selector('button[id^="drabbaPdfBtn"]', timeout=60000)
+            # Captura de diagnóstico
+            await page.screenshot(
+                path="debug_antes_click.png",
+                full_page=True,
+            )
 
-boton = page.locator('button[id^="drabbaPdfBtn"]')
+            print("Esperando el botón...")
 
-count = await boton.count()
-print(f"Botones encontrados: {count}")
+            await page.wait_for_selector(
+                'button[id^="drabbaPdfBtn"]',
+                timeout=60000,
+            )
 
-await boton.first.wait_for(state="visible", timeout=60000)
+            boton = page.locator('button[id^="drabbaPdfBtn"]')
 
-            print("Haciendo click en el boton de descarga...")
-            # 82 productos con imagenes -> hasta 3 minutos de margen
+            cantidad = await boton.count()
+            print(f"Botones encontrados: {cantidad}")
+
+            await boton.first.scroll_into_view_if_needed()
+
+            await boton.first.wait_for(
+                state="visible",
+                timeout=60000,
+            )
+
+            print("Haciendo clic...")
+
             async with page.expect_download(timeout=180000) as download_info:
-                await boton.first.click(timeout=20000)
+                await boton.first.click(force=True)
 
             download = await download_info.value
             await download.save_as(SALIDA)
-            print(f"PDF guardado en {SALIDA}")
 
-        except Exception:
-            # Si algo falla, guarda otra screenshot y el HTML completo
-            await page.screenshot(path="debug_error.png", full_page=True)
-            html = await page.content()
+            print(f"PDF guardado como {SALIDA}")
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+
+            await page.screenshot(
+                path="debug_error.png",
+                full_page=True,
+            )
+
             with open("debug_html.txt", "w", encoding="utf-8") as f:
-                f.write(html)
+                f.write(await page.content())
+
             raise
 
         finally:
