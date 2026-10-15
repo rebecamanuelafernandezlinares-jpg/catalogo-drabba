@@ -11,7 +11,7 @@ permissions:
 jobs:
   actualizar-pdf:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - name: Clonar repo
         uses: actions/checkout@v4

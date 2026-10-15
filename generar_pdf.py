@@ -11,6 +11,9 @@ from playwright.async_api import async_playwright
 
 CATALOGO_URL = "https://drabbalovers.co/collections/drabba-pdf-button"
 BOTON_REGEX = re.compile(r"descargar", re.IGNORECASE)
+# Desde la actualizacion con "descargar por talla", el boton abre un panel de opciones;
+# hay que elegir "Catalogo completo" para que arranque la descarga.
+OPCION_COMPLETO_REGEX = re.compile(r"cat[aá]logo completo", re.IGNORECASE)
 SALIDA = "catalogo.pdf"
 INTENTOS = 3
 USER_AGENT = (
@@ -56,11 +59,31 @@ async def intentar_descarga(page, intento_num):
     await boton.first.wait_for(state="visible", timeout=20000)
     await boton.first.scroll_into_view_if_needed(timeout=10000)
 
-    print("Haciendo click en el boton de descarga...")
-    async with page.expect_download(timeout=180000) as download_info:
-        await boton.first.click(timeout=20000, force=False)
+    descargas = []
+    manejador = lambda d: descargas.append(d)
+    page.on("download", manejador)
 
-    download = await download_info.value
+    print("Haciendo click en el boton de descarga...")
+    await boton.first.click(timeout=20000, force=False)
+
+    # Desde la version con "descargar por talla", el boton abre un panel de opciones y hay que
+    # elegir "Catalogo completo". Si el boton descargara directo, simplemente llega la descarga.
+    opcion = page.get_by_role("button", name=OPCION_COMPLETO_REGEX)
+    opcion_clickeada = False
+    for _ in range(240):  # hasta ~240 s
+        if descargas:
+            break
+        if not opcion_clickeada and await opcion.count() > 0 and await opcion.first.is_visible():
+            print("Eligiendo 'Catalogo completo'...")
+            await opcion.first.click(timeout=20000)
+            opcion_clickeada = True
+        await page.wait_for_timeout(1000)
+
+    page.remove_listener("download", manejador)
+    if not descargas:
+        raise RuntimeError("No se genero ninguna descarga (timeout)")
+
+    download = descargas[0]
     await download.save_as(SALIDA)
     print(f"PDF guardado en {SALIDA}")
 
